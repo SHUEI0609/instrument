@@ -1,16 +1,16 @@
-from PySide6.QtWidgets import QApplication, QWidget, QPushButton, QHBoxLayout, QVBoxLayout, QLabel
+from PySide6.QtWidgets import QApplication, QWidget, QPushButton, QHBoxLayout
 from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtMultimedia import QSoundEffect
-from PySide6.QtCore import Qt
 import sys
 import os
+from pydub import AudioSegment
 
 # 音階リスト
 sounds = ["C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4", "A#4", "B4",
           "C5", "C#5", "D5", "D#5", "E5", "F5", "F#5", "G5", "G#5", "A5", "A#5", "B5",
           "C6", "C#6", "D6", "D#6", "E6", "F6", "F#6", "G6", "G#6", "A6", "A#6", "B6"]
 
-# 音声ファイルのディレクトリ（pianosounds フォルダに音源がある前提）
+# 音声ファイルのディレクトリ
 SOUND_DIR = "pianosounds"
 
 class PianoApp(QWidget):
@@ -18,12 +18,12 @@ class PianoApp(QWidget):
     super().__init__()
     self.setWindowTitle("PianoApp")
     self.setGeometry(100, 50, 900, 300)
-    self.setStyleSheet("background-color: #DEB887;")  # 背景色を茶色に設定
+    self.setStyleSheet("background-color: #DEB887;")
 
     layout = QHBoxLayout()
 
-    self.buttons = {}  # ボタンの辞書
-    self.sounds = {}  # 音声データの辞書
+    self.buttons = {}
+    self.sounds = {}
 
     for sound in sounds:
       button = QPushButton(sound)
@@ -48,28 +48,36 @@ class PianoApp(QWidget):
       sound_path = os.path.join(SOUND_DIR, f"{sound}.wav")
 
       if os.path.exists(sound_path):
+        # 音量増幅
+        amplified_path = self.amplify_audio(sound_path, gain_dB=10)
+
         effect = QSoundEffect()
-        effect.setSource(QUrl.fromLocalFile(sound_path))  # 音源ファイルをセット
-        effect.setVolume(0.8)
+        effect.setSource(QUrl.fromLocalFile(amplified_path))
+        effect.setVolume(1.0)  # 最大音量
         self.sounds[button] = effect
 
-      # ボタン押下時の処理を設定
       button.clicked.connect(lambda checked=False,
                              btn=button: self.on_button_clicked(btn))
       layout.addWidget(button)
 
     self.setLayout(layout)
 
+  def amplify_audio(self, input_path, gain_dB):
+    """音声ファイルの音量を増幅する"""
+    sound = AudioSegment.from_file(input_path, format="wav")
+    amplified_sound = sound + gain_dB  # 音量増幅
+    output_path = input_path.replace(".wav", "_loud.wav")  # 増幅後の音声ファイル名
+    amplified_sound.export(output_path, format="wav")
+    return output_path
+
   def on_button_clicked(self, button):
     """ボタンが押されたときの処理"""
     original_style, pressed_style = self.buttons[button]
-    button.setStyleSheet(pressed_style)  # 一時的に色を変更
+    button.setStyleSheet(pressed_style)
 
-    # 音を再生
     if button in self.sounds:
       self.sounds[button].play()
 
-    # 200ms後に元の色に戻す
     QTimer.singleShot(200, lambda: button.setStyleSheet(original_style))
 
 
